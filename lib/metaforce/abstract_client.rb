@@ -1,5 +1,13 @@
 module Metaforce
   class AbstractClient
+
+    NAMESPACES = {
+      "xmlns:metadata" => "http://soap.sforce.com/2006/04/metadata",
+      "xmlns:ins0" => "http://soap.sforce.com/2006/04/metadata",
+      "xmlns:partner"  => "urn:partner.soap.sforce.com"
+    }
+
+
     class << self
       # Internal
       def endpoint(key)
@@ -20,16 +28,36 @@ module Metaforce
       @options = options
     end
 
-  private
+    private
 
     # Internal: The Savon client to send SOAP requests with.
     def client
-      @client ||= Savon.client(wsdl) do |wsdl|
-        wsdl.endpoint = endpoint
-      end.tap do |client|
-        client.config.soap_header = soap_headers
-        client.http.auth.ssl.verify_mode = :none
-      end
+      @client ||=
+        begin
+          options = {
+            endpoint: endpoint,
+            ssl_verify_mode: :none,
+            wsdl: wsdl,
+            namespaces: NAMESPACES
+          }
+
+          if Metaforce.log?
+            options.merge!(log: true)
+          end
+
+          if Metaforce.configuration.pretty_print
+            options.merge!(pretty_print_xml: true)
+          end
+
+          if proxy = Metaforce.configuration.proxy
+            options.merge!(proxy: proxy)
+          end
+
+          Savon.client(options).tap do |c|
+            c.globals.soap_header soap_headers
+          end
+        end
+      @client
     end
 
     # Internal: Performs a SOAP request. If the session is invalid, it will
@@ -40,7 +68,7 @@ module Metaforce
       retries = authentication_retries
       begin
         perform_request(*args, &block)
-      rescue Savon::SOAP::Fault => e
+      rescue Savon::SOAPFault => e
         if e.message =~ /INVALID_SESSION_ID/ && authentication_handler && retries > 0
           authenticate!
           retries -= 1
@@ -51,8 +79,12 @@ module Metaforce
     end
 
     def perform_request(*args, &block)
-      response = client.request(*args, &block)
-      Hashie::Mash.new(response.body)[:"#{args[0]}_response"].result
+      opts = args.extract_options!
+
+      response = client.call(args[0], opts, &block)
+      Hashie::Mash.new(response.body)[:"#{args[0]}_response"].result.tap do |resp|
+        Metaforce.debug(resp)
+      end
     end
 
     # Internal Calls the authentication handler, which should set @options to a new
@@ -60,7 +92,7 @@ module Metaforce
     def authenticate!
       options = authentication_handler.call(self, @options)
       @options.merge!(options)
-      client.config.soap_header = soap_headers
+      client.globals[:soap_header] = soap_headers
     end
 
     # A proc object that gets called when the client needs to reauthenticate.

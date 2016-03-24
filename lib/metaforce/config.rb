@@ -1,36 +1,15 @@
 module Metaforce
-  class << self
-    attr_writer :log
-
-    # Returns the current Configuration
-    #
-    #    Metaforce.configuration.username = "username"
-    #    Metaforce.configuration.password = "password"
-    def configuration
-      @configuration ||= Configuration.new
-    end
-
-    # Yields the Configuration
-    #
-    #    Metaforce.configure do |config|
-    #      config.username = "username"
-    #      config.password = "password"
-    #    end
-    def configure
-      yield configuration
-    end
-
-    def log?
-      @log ||= false
-    end
-
-    def log(message)
-      return unless Metaforce.log?
-      Metaforce.configuration.logger.send :debug, message
-    end
-  end
 
   class Configuration
+
+    NAMESPACES = {
+      "xmlns:metadata" => "http://soap.sforce.com/2006/04/metadata",
+      "xmlns:ins0" => "http://soap.sforce.com/2006/04/metadata",
+      "xmlns:partner"  => "urn:partner.soap.sforce.com"
+    }
+
+    attr_accessor :pretty_print
+    attr_accessor :proxy
     # The Salesforce API version to use. Defaults to 23.0
     attr_accessor :api_version
     # The username to use during login.
@@ -64,6 +43,10 @@ module Metaforce
       @host ||= 'login.salesforce.com'
     end
 
+    def pretty_print
+      @pretty_print || false
+    end
+
     def authentication_handler
       @authentication_handler ||= lambda { |client, options|
         Metaforce.login(options)
@@ -71,9 +54,6 @@ module Metaforce
     end
 
     def log=(log)
-      Savon.configure do |config|
-        config.log = log
-      end
       HTTPI.log = log
     end
 
@@ -95,6 +75,23 @@ module Metaforce
 
     def logger
       @logger ||= ::Logger.new STDOUT
+    end
+
+    def soap_options(opts = {})
+      {
+        endpoint: endpoint,
+        ssl_verify_mode: :none,
+        wsdl: wsdl,
+        namespaces: NAMESPACES
+      }.tap do |options|
+        options.merge!(log: true) if Metaforce.log?
+        options.merge!(pretty_print_xml: true) if Metaforce.configuration.pretty_print
+
+        if proxy = Metaforce.configuration.proxy
+          options.merge!(proxy: proxy)
+        end
+      end
+
     end
   end
 end

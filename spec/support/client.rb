@@ -1,9 +1,9 @@
 shared_examples 'a client' do
   describe 'when the session id expires' do
-    let(:exception) { Savon::SOAP::Fault.new(HTTPI::Response.new(403, {}, '')) }
+    let(:exception) { Savon::SOAPFault.new(HTTPI::Response.new(403, {}, ''), Gyoku.xml(Exception: {})) }
 
     before do
-      client.send(:client).should_receive(:request).once.and_raise(exception)
+      expect(client.send(:client)).to receive(:request).once.and_raise(exception)
       exception.stub(:message).and_return('INVALID_SESSION_ID')
     end
 

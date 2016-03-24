@@ -11,9 +11,11 @@ module Metaforce
         def _create(type, metadata={})
           type = type.to_s.camelize
           request :create do |soap|
-            soap.body = {
-              :metadata => prepare(metadata)
-            }.merge(attributes!(type))
+            soap.message(
+              xml(:metadata => prepare(metadata),
+                  :attributes! => { :metadata => xsd_type(type)}
+                 )
+            )
           end
         end
 
@@ -26,9 +28,12 @@ module Metaforce
           type = type.to_s.camelize
           metadata = args.map { |full_name| {:full_name => full_name} }
           request :delete do |soap|
-            soap.body = {
-              :metadata => metadata
-            }.merge(attributes!(type))
+            soap.message(
+              xml(:metadata => metadata,
+                  :attributes! => {
+                    :metadata => xsd_type(type)
+                  })
+            )
           end
         end
 
@@ -40,13 +45,14 @@ module Metaforce
         def _update(type, current_name, metadata={})
           type = type.to_s.camelize
           request :update do |soap|
-            soap.body = {
-              :metadata => {
-                :current_name => current_name,
-                :metadata => prepare(metadata),
-                :attributes! => { :metadata => { 'xsi:type' => "ins0:#{type}" } }
-              }
-            }
+            soap.message(
+              xml(:metadata => {
+                    :current_name => current_name,
+                    :metadata => prepare(metadata),
+                    :attributes! => { :metadata => xsd_type(type)}
+                  })
+            )
+
           end
         end
 
@@ -64,10 +70,13 @@ module Metaforce
 
       private
 
-        def attributes!(type)
-          {:attributes! => { 'ins0:metadata' => { 'xsi:type' => "ins0:#{type}" } }}
+        def xml(hash)
+          Gyoku.xml(hash)
         end
 
+        def xsd_type(type)
+          { 'xsi:type' => "ins0:#{type}" }
+        end
         # Internal: Prepare metadata by base64 encoding any content keys.
         def prepare(metadata)
           metadata = Array[metadata].compact.flatten
@@ -79,7 +88,7 @@ module Metaforce
         def encode_content(metadata)
           metadata[:content] = Base64.encode64(metadata[:content]) if metadata.has_key?(:content)
         end
-        
+
       end
     end
   end

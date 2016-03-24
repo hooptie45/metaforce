@@ -19,10 +19,14 @@ module Metaforce
       # Returns the result.
       def send_email(options={})
         request :send_email do |soap|
-          soap.body = {
-            :messages => options,
-            :attributes! => { 'ins0:messages' => { 'xsi:type' => 'ins0:SingleEmailMessage' } }
-          }
+          soap.message(
+            Gyoku.xml(:messages => options,
+                      :attributes! => {
+                        :messages => {
+                          'xsi:type' => 'partner:SingleEmailMessage'
+                        }
+                      })
+          )
         end
       end
 
@@ -38,8 +42,9 @@ module Metaforce
       # Returns the layout metadata for the sobject.
       def describe_layout(sobject, record_type_id=nil)
         request :describe_layout do |soap|
-          soap.body = { 'sObjectType' => sobject }
-          soap.body.merge!('recordTypeID' => record_type_id) if record_type_id
+          msg = { 'sObjectType' => sobject }
+          msg.merge!('recordTypeID' => record_type_id) if record_type_id
+          soap.message(msg)
         end
       end
 
@@ -65,15 +70,15 @@ module Metaforce
         "#<#{self.class} @options=#{@options.inspect}>"
       end
 
-      # Public: Retrieves the current system timestamp 
+      # Public: Retrieves the current system timestamp
       #         (Coordinated Universal Time (UTC) time zone) from the API.
-      # 
+      #
       # Example: client.services.send(:get_server_timestamp)
       def get_server_timestamp
         request :get_server_timestamp
       end
 
-      # Public: Retrieves personal information for the user associated 
+      # Public: Retrieves personal information for the user associated
       #         with the current session.
       # Example: client.services.send(:get_user_info)
       def get_user_info

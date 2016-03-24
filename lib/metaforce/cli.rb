@@ -20,6 +20,7 @@ module Metaforce
         method_option :security_token, :aliases => '-t', :desc => 'Security Token.'
         method_option :environment, :aliases => '-e', :default => 'default', :desc => 'Environment to use from config file (if present).'
         method_option :host, :aliases => '-h', :desc => 'Salesforce host to connect to.'
+        method_option :proxy, :aliases => '-P', :desc => 'Connection proxy'
       end
 
       def deploy_options
@@ -104,13 +105,14 @@ module Metaforce
 
     def client
       credentials = Thor::CoreExt::HashWithIndifferentAccess.new(environment_config)
-      credentials.merge!(options.slice(:username, :password, :security_token, :host))
+      credentials.merge!(options.slice(:username, :password, :security_token, :host, :proxy))
       credentials.tap do |credentials|
         credentials[:username] ||= ask('username:')
         credentials[:password] ||= ask('password:')
         credentials[:security_token] ||= ask('security token:')
       end
       Metaforce.configuration.host = credentials[:host]
+      Metaforce.configuration.proxy = credentials[:proxy]
       Metaforce.new credentials
     end
 
