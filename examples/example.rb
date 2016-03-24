@@ -3,7 +3,7 @@ require 'metaforce'
 # Run with: `USER=user PASS=pass TOKEN=securitytoken bundle exec ruby example.rb`
 
 Metaforce.configuration.log = false
-h={username: "shannah3@bloomberg.net", password: "Emmajo123", security_token: "37UJyhfSgfzlqtDWiRkEbH3qU"}
+h={}
 client = Metaforce.new(h)
 
 Metaforce::Job.disable_threading!
